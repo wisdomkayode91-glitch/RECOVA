@@ -44,11 +44,3 @@ export default async function DashboardPage() {
     </main>
   );
 }
-
-Do exactly this:
-
-1. Open "app/dashboard/page.tsx".
-2. Replace the entire file with the code above.
-3. Commit the change to GitHub.
-4. Let the hosting platform create a new deployment from that commit.
-5. Do not retry the old "be8b132" deployment.
