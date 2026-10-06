@@ -5,7 +5,7 @@ import SignOutButton from "@/components/SignOutButton";
 export const runtime = "edge";
 
 export default async function DashboardPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const {
     data: { user },
