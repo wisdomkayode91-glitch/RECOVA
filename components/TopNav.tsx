@@ -14,6 +14,12 @@ export default function TopNav() {
         >
           Customers
         </Link>
+        <Link
+          href="/dashboard/invoices"
+          className="text-sm font-medium text-gray-600 hover:text-brand-700"
+        >
+          Invoices
+        </Link>
       </div>
       <SignOutButton />
     </nav>
