@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import TopNav from "@/components/TopNav";
 
@@ -53,12 +52,12 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <Link
+      <a
         href="/dashboard/customers"
         className="inline-block rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700"
       >
         View customers →
-      </Link>
+      </a>
     </main>
   );
 }
