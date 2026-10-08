@@ -4,7 +4,12 @@ import TopNav from "@/components/TopNav";
 
 export const runtime = "edge";
 
-export default async function CustomersPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
+  const { welcome } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -15,80 +20,44 @@ export default async function CustomersPage() {
     redirect("/login");
   }
 
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name, email, phone, created_at")
-    .order("created_at", { ascending: false });
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, organizations(name)")
+    .eq("id", user!.id)
+    .single();
 
-  const { data: invoices } = await supabase
-    .from("invoices")
-    .select("customer_id, total_amount, status");
+  const organizationName =
+    (profile?.organizations as unknown as { name: string } | null)?.name ??
+    "your business";
 
-  // V1: no payments yet, so outstanding = every unpaid invoice's full amount.
-  const outstandingByCustomer = new Map<string, number>();
-  for (const inv of invoices ?? []) {
-    if (inv.status === "paid") continue;
-    const current = outstandingByCustomer.get(inv.customer_id) ?? 0;
-    outstandingByCustomer.set(inv.customer_id, current + Number(inv.total_amount));
-  }
+  const isNewSignup = welcome === "1";
 
   return (
     <main className="min-h-screen px-6 py-6">
       <TopNav />
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-brand-700">Customers</h1>
-        <a
-          href="/dashboard/customers/new"
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
-          + Add customer
-        </a>
-      </div>
+      <p className="mb-6 text-sm text-gray-500">
+        {profile?.full_name ?? "there"} — {organizationName}
+      </p>
 
-      {(!customers || customers.length === 0) && (
-        <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-gray-600">No customers yet.</p>
-          <a
-            href="/dashboard/customers/new"
-            className="mt-2 inline-block text-brand-700 underline"
-          >
-            Add your first customer
-          </a>
+      {isNewSignup && (
+        <div className="mb-6 rounded-xl border border-brand-500 bg-brand-50 p-4">
+          <p className="font-semibold text-brand-700">
+            🎉 You're in — {organizationName} is live on Recova!
+          </p>
+          <p className="mt-1 text-sm text-gray-700">
+            Your account, your business, and your private database are all
+            connected and working. Next up: add your first customer.
+          </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {customers?.map((customer) => {
-          const outstanding = outstandingByCustomer.get(customer.id) ?? 0;
-          const dotColor = outstanding === 0 ? "bg-green-500" : "bg-red-500";
-          const statusLabel =
-            outstanding === 0
-              ? "No balance owed"
-              : `Owes ₦${outstanding.toLocaleString("en-NG")}`;
-
-          return (
-            <a
-              key={customer.id}
-              href={`/dashboard/customers/${customer.id}`}
-              className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 hover:border-brand-500 hover:shadow-sm"
-            >
-              <span
-                className={`h-3 w-3 shrink-0 rounded-full ${dotColor}`}
-                title={statusLabel}
-              />
-              <div className="min-w-0">
-                <p className="truncate font-medium text-gray-900">
-                  {customer.name}
-                </p>
-                <p className="truncate text-sm text-gray-500">
-                  {statusLabel}
-                </p>
-              </div>
-            </a>
-          );
-        })}
-      </div>
+      <a
+        href="/dashboard/customers"
+        className="inline-block rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700"
+      >
+        View customers →
+      </a>
     </main>
   );
-                }
+}
