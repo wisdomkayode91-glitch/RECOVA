@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import TopNav from "@/components/TopNav";
 
@@ -21,55 +20,75 @@ export default async function CustomersPage() {
     .select("id, name, email, phone, created_at")
     .order("created_at", { ascending: false });
 
+  const { data: invoices } = await supabase
+    .from("invoices")
+    .select("customer_id, total_amount, status");
+
+  // V1: no payments yet, so outstanding = every unpaid invoice's full amount.
+  const outstandingByCustomer = new Map<string, number>();
+  for (const inv of invoices ?? []) {
+    if (inv.status === "paid") continue;
+    const current = outstandingByCustomer.get(inv.customer_id) ?? 0;
+    outstandingByCustomer.set(inv.customer_id, current + Number(inv.total_amount));
+  }
+
   return (
     <main className="min-h-screen px-6 py-6">
       <TopNav />
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-brand-700">Customers</h1>
-        <Link
+        <a
           href="/dashboard/customers/new"
           className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
           + Add customer
-        </Link>
+        </a>
       </div>
 
       {(!customers || customers.length === 0) && (
         <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
           <p className="text-gray-600">No customers yet.</p>
-          <Link
+          <a
             href="/dashboard/customers/new"
             className="mt-2 inline-block text-brand-700 underline"
           >
             Add your first customer
-          </Link>
+          </a>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {customers?.map((customer) => (
-          <Link
-            key={customer.id}
-            href={`/dashboard/customers/${customer.id}`}
-            className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 hover:border-brand-500 hover:shadow-sm"
-          >
-            <span
-              className="h-3 w-3 shrink-0 rounded-full bg-gray-300"
-              title="No activity yet"
-            />
-            <div className="min-w-0">
-              <p className="truncate font-medium text-gray-900">
-                {customer.name}
-              </p>
-              <p className="truncate text-sm text-gray-500">
-                {customer.email || customer.phone || "No contact info"}
-              </p>
-            </div>
-          </Link>
-        ))}
+        {customers?.map((customer) => {
+          const outstanding = outstandingByCustomer.get(customer.id) ?? 0;
+          const dotColor = outstanding === 0 ? "bg-green-500" : "bg-red-500";
+          const statusLabel =
+            outstanding === 0
+              ? "No balance owed"
+              : `Owes ₦${outstanding.toLocaleString("en-NG")}`;
+
+          return (
+            <a
+              key={customer.id}
+              href={`/dashboard/customers/${customer.id}`}
+              className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 hover:border-brand-500 hover:shadow-sm"
+            >
+              <span
+                className={`h-3 w-3 shrink-0 rounded-full ${dotColor}`}
+                title={statusLabel}
+              />
+              <div className="min-w-0">
+                <p className="truncate font-medium text-gray-900">
+                  {customer.name}
+                </p>
+                <p className="truncate text-sm text-gray-500">
+                  {statusLabel}
+                </p>
+              </div>
+            </a>
+          );
+        })}
       </div>
     </main>
   );
 }
-  
