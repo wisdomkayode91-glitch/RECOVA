@@ -57,6 +57,12 @@ export default function SignupPage() {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          business_name: businessName,
+          full_name: fullName,
+        },
+      },
     });
 
     if (authError || !authData.user) {
@@ -73,31 +79,8 @@ export default function SignupPage() {
       return;
     }
 
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .insert({ name: businessName })
-      .select()
-      .single();
-
-    if (orgError || !org) {
-      setError(orgError?.message ?? "Could not create organization.");
-      setLoading(false);
-      return;
-    }
-
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: authData.user.id,
-      organization_id: org.id,
-      full_name: fullName,
-      role: "owner",
-    });
-
-    if (profileError) {
-      setError(profileError.message);
-      setLoading(false);
-      return;
-    }
-
+    // The database automatically creates the organization and profile
+    // the moment the account is created — nothing more to do here.
     router.push("/dashboard?welcome=1");
     router.refresh();
   }
@@ -220,4 +203,4 @@ export default function SignupPage() {
       </form>
     </main>
   );
-            }
+}
