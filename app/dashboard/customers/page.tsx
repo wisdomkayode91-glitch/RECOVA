@@ -22,14 +22,18 @@ export default async function CustomersPage() {
 
   const { data: balances } = await supabase
     .from("invoice_balances")
-    .select("customer_id, outstanding");
+    .select("customer_id, outstanding, amount_paid");
 
   const outstandingByCustomer = new Map<string, number>();
+  const paidByCustomer = new Map<string, number>();
   for (const row of balances ?? []) {
-    const current = outstandingByCustomer.get(row.customer_id) ?? 0;
     outstandingByCustomer.set(
       row.customer_id,
-      current + Math.max(0, Number(row.outstanding))
+      (outstandingByCustomer.get(row.customer_id) ?? 0) + Math.max(0, Number(row.outstanding))
+    );
+    paidByCustomer.set(
+      row.customer_id,
+      (paidByCustomer.get(row.customer_id) ?? 0) + Number(row.amount_paid)
     );
   }
 
@@ -62,11 +66,14 @@ export default async function CustomersPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {customers?.map((customer) => {
           const outstanding = outstandingByCustomer.get(customer.id) ?? 0;
-          const dotColor = outstanding === 0 ? "bg-green-500" : "bg-red-500";
-          const statusLabel =
-            outstanding === 0
-              ? "No balance owed"
-              : `Owes ₦${outstanding.toLocaleString("en-NG")}`;
+          const paid = paidByCustomer.get(customer.id) ?? 0;
+
+          let dotColor = "bg-green-500";
+          let statusLabel = "No balance owed";
+          if (outstanding > 0) {
+            statusLabel = `Owes ₦${outstanding.toLocaleString("en-NG")}`;
+            dotColor = paid > 0 ? "bg-yellow-500" : "bg-red-500";
+          }
 
           return (
             <a
