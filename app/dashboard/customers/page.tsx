@@ -20,16 +20,17 @@ export default async function CustomersPage() {
     .select("id, name, email, phone, created_at")
     .order("created_at", { ascending: false });
 
-  const { data: invoices } = await supabase
-    .from("invoices")
-    .select("customer_id, total_amount, status");
+  const { data: balances } = await supabase
+    .from("invoice_balances")
+    .select("customer_id, outstanding");
 
-  // V1: no payments yet, so outstanding = every unpaid invoice's full amount.
   const outstandingByCustomer = new Map<string, number>();
-  for (const inv of invoices ?? []) {
-    if (inv.status === "paid") continue;
-    const current = outstandingByCustomer.get(inv.customer_id) ?? 0;
-    outstandingByCustomer.set(inv.customer_id, current + Number(inv.total_amount));
+  for (const row of balances ?? []) {
+    const current = outstandingByCustomer.get(row.customer_id) ?? 0;
+    outstandingByCustomer.set(
+      row.customer_id,
+      current + Math.max(0, Number(row.outstanding))
+    );
   }
 
   return (
@@ -91,4 +92,4 @@ export default async function CustomersPage() {
       </div>
     </main>
   );
-            }
+}
