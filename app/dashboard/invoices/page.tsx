@@ -8,13 +8,6 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  sent: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
-};
-
 export default async function InvoicesPage() {
   const supabase = await createClient();
 
@@ -27,9 +20,11 @@ export default async function InvoicesPage() {
   }
 
   const { data: invoices } = await supabase
-    .from("invoices")
-    .select("id, invoice_number, total_amount, currency, status, due_date, customers(name)")
-    .order("created_at", { ascending: false });
+    .from("invoice_balances")
+    .select(
+      "invoice_id, invoice_number, total_amount, amount_paid, outstanding, due_date, customer_id, customers(name)"
+    )
+    .order("due_date", { ascending: true });
 
   return (
     <main className="min-h-screen px-6 py-6">
@@ -62,11 +57,20 @@ export default async function InvoicesPage() {
           const customerName =
             (invoice.customers as unknown as { name: string } | null)
               ?.name ?? "Unknown customer";
+          const paid = Math.max(0, Number(invoice.outstanding)) <= 0;
+          const partial = !paid && Number(invoice.amount_paid) > 0;
+          const badgeStyle = paid
+            ? "bg-green-100 text-green-700"
+            : partial
+            ? "bg-yellow-100 text-yellow-700"
+            : "bg-red-100 text-red-700";
+          const badgeLabel = paid ? "paid" : partial ? "partial" : "unpaid";
 
           return (
-            <div
-              key={invoice.id}
-              className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
+            <a
+              key={invoice.invoice_id}
+              href={`/dashboard/customers/${invoice.customer_id}`}
+              className="flex items-center justify-between rounded-xl border border-gray-200 p-4 hover:border-brand-500"
             >
               <div className="min-w-0">
                 <p className="font-medium text-gray-900">{customerName}</p>
@@ -82,17 +86,15 @@ export default async function InvoicesPage() {
                   {formatNaira(invoice.total_amount)}
                 </span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    STATUS_STYLES[invoice.status] ?? "bg-gray-100 text-gray-600"
-                  }`}
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}
                 >
-                  {invoice.status}
+                  {badgeLabel}
                 </span>
               </div>
-            </div>
+            </a>
           );
         })}
       </div>
     </main>
   );
-}
+          }
