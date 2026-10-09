@@ -8,6 +8,32 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
 
+function buildReminderMessage(
+  customerName: string,
+  outstanding: number,
+  unpaidInvoices: { invoice_number: string; outstanding: number }[]
+) {
+  const invoiceList = unpaidInvoices
+    .map((i) => `${i.invoice_number} (${formatNaira(i.outstanding)})`)
+    .join(", ");
+
+  return `Hi ${customerName}, this is a friendly reminder that you currently have an outstanding balance of ${formatNaira(
+    outstanding
+  )}${
+    invoiceList ? ` across: ${invoiceList}` : ""
+  }. Kindly let us know when we can expect payment, or reach out if you have any questions. Thank you!`;
+}
+
+function whatsAppLink(phone: string, message: string) {
+  const digits = phone.replace(/\D/g, "");
+  const intl = digits.startsWith("0")
+    ? "234" + digits.slice(1)
+    : digits.startsWith("234")
+    ? digits
+    : "234" + digits;
+  return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`;
+}
+
 export default async function CustomerDetailPage({
   params,
 }: {
@@ -48,9 +74,29 @@ export default async function CustomerDetailPage({
 
   const outstanding =
     invoices?.reduce((sum, inv) => sum + Math.max(0, Number(inv.outstanding)), 0) ?? 0;
+  const totalPaid =
+    invoices?.reduce((sum, inv) => sum + Number(inv.amount_paid), 0) ?? 0;
 
-  const statusColor = outstanding === 0 ? "bg-green-500" : "bg-red-500";
-  const statusLabel = outstanding === 0 ? "No balance owed" : "Owes money";
+  let statusColor = "bg-green-500";
+  let statusLabel = "No balance owed";
+  if (outstanding > 0) {
+    statusLabel = "Owes money";
+    statusColor = totalPaid > 0 ? "bg-yellow-500" : "bg-red-500";
+  }
+
+  const unpaidInvoices =
+    invoices
+      ?.filter((inv) => Number(inv.outstanding) > 0)
+      .map((inv) => ({
+        invoice_number: inv.invoice_number,
+        outstanding: Number(inv.outstanding),
+      })) ?? [];
+
+  const reminderMessage = buildReminderMessage(
+    customer.name,
+    outstanding,
+    unpaidInvoices
+  );
 
   return (
     <main className="min-h-screen px-6 py-6">
@@ -80,6 +126,17 @@ export default async function CustomerDetailPage({
           Outstanding balance: {formatNaira(outstanding)}
         </p>
       </div>
+
+      {outstanding > 0 && customer.phone && (
+        <a
+          href={whatsAppLink(customer.phone, reminderMessage)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-6 inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          💬 Remind via WhatsApp
+        </a>
+      )}
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">Invoices</h2>
@@ -172,4 +229,4 @@ export default async function CustomerDetailPage({
       </div>
     </main>
   );
-}
+            }
