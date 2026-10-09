@@ -97,4 +97,4 @@ export default async function InvoicesPage() {
       </div>
     </main>
   );
-          }
+}
