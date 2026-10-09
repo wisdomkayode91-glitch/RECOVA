@@ -35,19 +35,21 @@ export default async function CustomerDetailPage({
   }
 
   const { data: invoices } = await supabase
-    .from("invoices")
-    .select("id, invoice_number, total_amount, status, due_date")
+    .from("invoice_balances")
+    .select("invoice_id, invoice_number, total_amount, amount_paid, outstanding, due_date")
     .eq("customer_id", id)
     .order("due_date", { ascending: true });
 
-  // V1: no payments yet, so outstanding = every unpaid invoice's full amount.
-  const outstanding =
-    invoices
-      ?.filter((inv) => inv.status !== "paid")
-      .reduce((sum, inv) => sum + Number(inv.total_amount), 0) ?? 0;
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("id, amount, method, reference, payment_date")
+    .eq("customer_id", id)
+    .order("payment_date", { ascending: false });
 
-  const statusColor =
-    outstanding === 0 ? "bg-green-500" : "bg-red-500";
+  const outstanding =
+    invoices?.reduce((sum, inv) => sum + Math.max(0, Number(inv.outstanding)), 0) ?? 0;
+
+  const statusColor = outstanding === 0 ? "bg-green-500" : "bg-red-500";
   const statusLabel = outstanding === 0 ? "No balance owed" : "Owes money";
 
   return (
@@ -81,45 +83,93 @@ export default async function CustomerDetailPage({
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">Invoices</h2>
-        <a
-          href="/dashboard/invoices/new"
-          className="text-sm text-brand-700 underline"
-        >
-          + New invoice
-        </a>
+        <div className="flex gap-3 text-sm">
+          <a href="/dashboard/payments/new" className="text-brand-700 underline">
+            + Record payment
+          </a>
+          <a href="/dashboard/invoices/new" className="text-brand-700 underline">
+            + New invoice
+          </a>
+        </div>
       </div>
 
       {(!invoices || invoices.length === 0) && (
-        <p className="text-sm text-gray-500">No invoices for this customer yet.</p>
+        <p className="mb-6 text-sm text-gray-500">No invoices for this customer yet.</p>
+      )}
+
+      <div className="mb-8 space-y-2">
+        {invoices?.map((invoice) => {
+          const paid = Math.max(0, Number(invoice.outstanding)) <= 0;
+          const partial = !paid && Number(invoice.amount_paid) > 0;
+
+          return (
+            <div
+              key={invoice.invoice_id}
+              className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-sm"
+            >
+              <div>
+                <p className="font-medium text-gray-900">
+                  {invoice.invoice_number}
+                </p>
+                <p className="text-gray-500">
+                  due{" "}
+                  {invoice.due_date
+                    ? new Date(invoice.due_date).toLocaleDateString("en-NG")
+                    : "—"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-medium text-gray-900">
+                  {formatNaira(invoice.total_amount)}
+                </p>
+                <p
+                  className={
+                    paid
+                      ? "text-green-700"
+                      : partial
+                      ? "text-yellow-700"
+                      : "text-red-700"
+                  }
+                >
+                  {paid
+                    ? "Paid"
+                    : partial
+                    ? `Partial — ${formatNaira(invoice.outstanding)} left`
+                    : "Unpaid"}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <h2 className="mb-4 font-semibold text-gray-900">Payment history</h2>
+
+      {(!payments || payments.length === 0) && (
+        <p className="text-sm text-gray-500">No payments recorded yet.</p>
       )}
 
       <div className="space-y-2">
-        {invoices?.map((invoice) => (
+        {payments?.map((payment) => (
           <div
-            key={invoice.id}
+            key={payment.id}
             className="flex items-center justify-between rounded-xl border border-gray-200 p-3 text-sm"
           >
             <div>
-              <p className="font-medium text-gray-900">
-                {invoice.invoice_number}
+              <p className="text-gray-900">
+                {new Date(payment.payment_date).toLocaleDateString("en-NG")}
               </p>
               <p className="text-gray-500">
-                due{" "}
-                {invoice.due_date
-                  ? new Date(invoice.due_date).toLocaleDateString("en-NG")
-                  : "—"}
+                {payment.method}
+                {payment.reference ? ` · ${payment.reference}` : ""}
               </p>
             </div>
-            <div className="text-right">
-              <p className="font-medium text-gray-900">
-                {formatNaira(invoice.total_amount)}
-              </p>
-              <p className="text-gray-500">{invoice.status}</p>
-            </div>
+            <span className="font-medium text-green-700">
+              {formatNaira(payment.amount)}
+            </span>
           </div>
         ))}
       </div>
     </main>
   );
 }
-  
