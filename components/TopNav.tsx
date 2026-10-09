@@ -19,6 +19,12 @@ export default function TopNav() {
         >
           Invoices
         </a>
+        <a
+          href="/dashboard/payments"
+          className="text-sm font-medium text-gray-600 hover:text-brand-700"
+        >
+          Payments
+        </a>
       </div>
       <SignOutButton />
     </nav>
