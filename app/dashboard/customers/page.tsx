@@ -18,6 +18,7 @@ export default async function CustomersPage() {
   const { data: customers } = await supabase
     .from("customers")
     .select("id, name, email, phone, created_at")
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   const { data: balances } = await supabase
