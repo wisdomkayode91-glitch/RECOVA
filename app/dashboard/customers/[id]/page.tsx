@@ -8,6 +8,30 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
 
+function getInvoiceState(
+  outstanding: number,
+  amountPaid: number,
+  dueDate: string | null
+) {
+  const isPaid = outstanding <= 0;
+  if (isPaid) return { label: "Paid", color: "text-green-700" };
+
+  const isOverdue = dueDate ? new Date(dueDate) < new Date() : false;
+  if (isOverdue)
+    return {
+      label: `Overdue — ${formatNaira(outstanding)} left`,
+      color: "text-red-700",
+    };
+
+  if (amountPaid > 0)
+    return {
+      label: `Partial — ${formatNaira(outstanding)} left`,
+      color: "text-yellow-700",
+    };
+
+  return { label: "Unpaid", color: "text-gray-600" };
+}
+
 function buildReminderMessage(
   customerName: string,
   outstanding: number,
@@ -156,8 +180,13 @@ export default async function CustomerDetailPage({
 
       <div className="mb-8 space-y-2">
         {invoices?.map((invoice) => {
-          const paid = Math.max(0, Number(invoice.outstanding)) <= 0;
-          const partial = !paid && Number(invoice.amount_paid) > 0;
+          const outstandingAmt = Math.max(0, Number(invoice.outstanding));
+          const amountPaid = Number(invoice.amount_paid);
+          const state = getInvoiceState(
+            outstandingAmt,
+            amountPaid,
+            invoice.due_date
+          );
 
           return (
             <div
@@ -174,26 +203,16 @@ export default async function CustomerDetailPage({
                     ? new Date(invoice.due_date).toLocaleDateString("en-NG")
                     : "—"}
                 </p>
+                <p className="text-gray-500">
+                  Paid {formatNaira(amountPaid)} of{" "}
+                  {formatNaira(invoice.total_amount)}
+                </p>
               </div>
               <div className="text-right">
                 <p className="font-medium text-gray-900">
                   {formatNaira(invoice.total_amount)}
                 </p>
-                <p
-                  className={
-                    paid
-                      ? "text-green-700"
-                      : partial
-                      ? "text-yellow-700"
-                      : "text-red-700"
-                  }
-                >
-                  {paid
-                    ? "Paid"
-                    : partial
-                    ? `Partial — ${formatNaira(invoice.outstanding)} left`
-                    : "Unpaid"}
-                </p>
+                <p className={state.color}>{state.label}</p>
               </div>
             </div>
           );
@@ -229,4 +248,5 @@ export default async function CustomerDetailPage({
       </div>
     </main>
   );
-            }
+}
+  
