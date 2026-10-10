@@ -11,8 +11,11 @@ function formatNaira(amount: number) {
 function getInvoiceState(
   outstanding: number,
   amountPaid: number,
-  dueDate: string | null
+  dueDate: string | null,
+  voidedAt: string | null
 ) {
+  if (voidedAt) return { label: "Voided", color: "text-gray-400" };
+
   const isPaid = outstanding <= 0;
   if (isPaid) return { label: "Paid", color: "text-green-700" };
 
@@ -86,7 +89,7 @@ export default async function CustomerDetailPage({
 
   const { data: invoices } = await supabase
     .from("invoice_balances")
-    .select("invoice_id, invoice_number, total_amount, amount_paid, outstanding, due_date")
+    .select("invoice_id, invoice_number, total_amount, amount_paid, outstanding, due_date, voided_at")
     .eq("customer_id", id)
     .order("due_date", { ascending: true });
 
@@ -126,11 +129,19 @@ export default async function CustomerDetailPage({
     <main className="min-h-screen px-6 py-6">
       <TopNav />
 
-      <div className="mb-6 flex items-center gap-3">
-        <span className={`h-3 w-3 rounded-full ${statusColor}`} title={statusLabel} />
-        <h1 className="text-xl font-semibold text-brand-700">
-          {customer.name}
-        </h1>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className={`h-3 w-3 rounded-full ${statusColor}`} title={statusLabel} />
+          <h1 className="text-xl font-semibold text-brand-700">
+            {customer.name}
+          </h1>
+        </div>
+        <a
+          href={`/dashboard/customers/${id}/edit`}
+          className="text-sm text-brand-700 underline"
+        >
+          Edit
+        </a>
       </div>
 
       <div className="mb-6 max-w-sm space-y-2 rounded-xl border border-gray-200 p-4 text-sm">
@@ -185,8 +196,10 @@ export default async function CustomerDetailPage({
           const state = getInvoiceState(
             outstandingAmt,
             amountPaid,
-            invoice.due_date
+            invoice.due_date,
+            invoice.voided_at
           );
+          const canVoid = !invoice.voided_at && amountPaid === 0;
 
           return (
             <div
@@ -207,6 +220,14 @@ export default async function CustomerDetailPage({
                   Paid {formatNaira(amountPaid)} of{" "}
                   {formatNaira(invoice.total_amount)}
                 </p>
+                {canVoid && (
+                  <a
+                    href={`/dashboard/invoices/${invoice.invoice_id}/void`}
+                    className="text-xs text-red-600 underline"
+                  >
+                    Void
+                  </a>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-medium text-gray-900">
@@ -248,5 +269,4 @@ export default async function CustomerDetailPage({
       </div>
     </main>
   );
-}
-  
+          }
