@@ -66,9 +66,10 @@ export default function NewPaymentPage() {
 
   function handleInvoiceChange(id: string) {
     setInvoiceId(id);
-    const inv = invoices.find((i) => i.invoice_id === id);
-    if (inv) setAmount(String(inv.outstanding));
+    setAmount("");
   }
+
+  const selectedInvoice = invoices.find((i) => i.invoice_id === invoiceId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -174,9 +175,20 @@ export default function NewPaymentPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Amount received (₦)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">
+                Amount received (₦)
+              </label>
+              {selectedInvoice && (
+                <button
+                  type="button"
+                  onClick={() => setAmount(String(selectedInvoice.outstanding))}
+                  className="text-xs text-brand-700 underline"
+                >
+                  Pay full ₦{selectedInvoice.outstanding.toLocaleString("en-NG")}
+                </button>
+              )}
+            </div>
             <input
               type="number"
               required
@@ -184,8 +196,15 @@ export default function NewPaymentPage() {
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount — type partial or full"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
             />
+            {selectedInvoice && (
+              <p className="mt-1 text-xs text-gray-500">
+                Outstanding on this invoice: ₦
+                {selectedInvoice.outstanding.toLocaleString("en-NG")}
+              </p>
+            )}
           </div>
 
           <div>
