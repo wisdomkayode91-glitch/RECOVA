@@ -28,6 +28,12 @@ export default function TopNav() {
         >
           Payments
         </a>
+        <a
+          href="/dashboard/audit"
+          className="text-sm font-medium text-gray-600 hover:text-brand-700"
+        >
+          Activity
+        </a>
       </div>
     </nav>
   );
