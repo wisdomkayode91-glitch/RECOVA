@@ -8,6 +8,23 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
 
+function getInvoiceState(
+  outstanding: number,
+  amountPaid: number,
+  dueDate: string | null
+) {
+  const isPaid = outstanding <= 0;
+  if (isPaid) return { label: "paid", style: "bg-green-100 text-green-700" };
+
+  const isOverdue = dueDate ? new Date(dueDate) < new Date() : false;
+  if (isOverdue) return { label: "overdue", style: "bg-red-100 text-red-700" };
+
+  if (amountPaid > 0)
+    return { label: "partial", style: "bg-yellow-100 text-yellow-700" };
+
+  return { label: "unpaid", style: "bg-gray-100 text-gray-600" };
+}
+
 export default async function InvoicesPage() {
   const supabase = await createClient();
 
@@ -57,14 +74,13 @@ export default async function InvoicesPage() {
           const customerName =
             (invoice.customers as unknown as { name: string } | null)
               ?.name ?? "Unknown customer";
-          const paid = Math.max(0, Number(invoice.outstanding)) <= 0;
-          const partial = !paid && Number(invoice.amount_paid) > 0;
-          const badgeStyle = paid
-            ? "bg-green-100 text-green-700"
-            : partial
-            ? "bg-yellow-100 text-yellow-700"
-            : "bg-red-100 text-red-700";
-          const badgeLabel = paid ? "paid" : partial ? "partial" : "unpaid";
+          const outstanding = Math.max(0, Number(invoice.outstanding));
+          const amountPaid = Number(invoice.amount_paid);
+          const { label, style } = getInvoiceState(
+            outstanding,
+            amountPaid,
+            invoice.due_date
+          );
 
           return (
             <a
@@ -80,15 +96,19 @@ export default async function InvoicesPage() {
                     ? new Date(invoice.due_date).toLocaleDateString("en-NG")
                     : "—"}
                 </p>
+                <p className="text-sm text-gray-500">
+                  Paid {formatNaira(amountPaid)} of{" "}
+                  {formatNaira(invoice.total_amount)}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className="font-medium text-gray-900">
                   {formatNaira(invoice.total_amount)}
                 </span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyle}`}
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${style}`}
                 >
-                  {badgeLabel}
+                  {label}
                 </span>
               </div>
             </a>
@@ -97,4 +117,4 @@ export default async function InvoicesPage() {
       </div>
     </main>
   );
-}
+            }
