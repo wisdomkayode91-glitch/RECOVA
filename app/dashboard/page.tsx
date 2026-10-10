@@ -38,7 +38,11 @@ export default async function DashboardPage({
 
   const { data: balances } = await supabase
     .from("invoice_balances")
-    .select("customer_id, total_amount, amount_paid, outstanding, customers(name)");
+    .select(
+      "customer_id, total_amount, amount_paid, outstanding, due_date, customers(name)"
+    );
+
+  const today = new Date();
 
   const totalInvoiced =
     balances?.reduce((sum, b) => sum + Number(b.total_amount), 0) ?? 0;
@@ -46,6 +50,10 @@ export default async function DashboardPage({
     balances?.reduce((sum, b) => sum + Number(b.amount_paid), 0) ?? 0;
   const totalOutstanding =
     balances?.reduce((sum, b) => sum + Math.max(0, Number(b.outstanding)), 0) ?? 0;
+  const totalOverdue =
+    balances
+      ?.filter((b) => Number(b.outstanding) > 0 && b.due_date && new Date(b.due_date) < today)
+      .reduce((sum, b) => sum + Number(b.outstanding), 0) ?? 0;
   const collectionRate =
     totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0;
 
@@ -93,7 +101,7 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500">Total invoiced</p>
           <p className="mt-1 text-lg font-semibold text-gray-900">
@@ -113,6 +121,15 @@ export default async function DashboardPage({
           <p className="text-xs text-gray-500">Outstanding</p>
           <p className="mt-1 text-lg font-semibold text-red-700">
             {formatNaira(totalOutstanding)}
+          </p>
+        </a>
+        <a
+          href="/dashboard/invoices"
+          className="rounded-xl border border-gray-200 p-4 hover:border-brand-500"
+        >
+          <p className="text-xs text-gray-500">Overdue</p>
+          <p className="mt-1 text-lg font-semibold text-red-700">
+            {formatNaira(totalOverdue)}
           </p>
         </a>
         <div className="rounded-xl border border-gray-200 p-4">
@@ -157,5 +174,4 @@ export default async function DashboardPage({
       )}
     </main>
   );
-    }
-        
+              }
