@@ -34,6 +34,12 @@ export default function TopNav() {
         >
           Activity
         </a>
+        <a
+          href="/dashboard/staff"
+          className="text-sm font-medium text-gray-600 hover:text-brand-700"
+        >
+          Team
+        </a>
       </div>
     </nav>
   );
