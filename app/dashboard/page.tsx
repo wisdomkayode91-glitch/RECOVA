@@ -8,12 +8,42 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 }
 
+type RangeKey = "today" | "week" | "month" | "total";
+
+function getRangeStart(range: RangeKey): Date | null {
+  const now = new Date();
+  if (range === "today") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (range === "week") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 7);
+    return d;
+  }
+  if (range === "month") {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null; // total = no filter
+}
+
+const RANGE_LABELS: Record<RangeKey, string> = {
+  today: "Today",
+  week: "This week",
+  month: "This month",
+  total: "Total",
+};
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string }>;
+  searchParams: Promise<{ welcome?: string; range?: string }>;
 }) {
-  const { welcome } = await searchParams;
+  const { welcome, range: rawRange } = await searchParams;
+  const range: RangeKey =
+    rawRange === "today" || rawRange === "week" || rawRange === "month"
+      ? rawRange
+      : "total";
+
   const supabase = await createClient();
 
   const {
@@ -39,30 +69,38 @@ export default async function DashboardPage({
   const { data: balances } = await supabase
     .from("invoice_balances")
     .select(
-      "customer_id, total_amount, amount_paid, outstanding, due_date, customers(name)"
+      "customer_id, total_amount, amount_paid, outstanding, due_date, issue_date, voided_at, customers(name)"
     );
+
+  const rangeStart = getRangeStart(range);
+  const periodRows = (balances ?? []).filter((b) => {
+    if (b.voided_at) return false;
+    if (!rangeStart) return true;
+    if (!b.issue_date) return false;
+    return new Date(b.issue_date) >= rangeStart;
+  });
 
   const today = new Date();
 
-  const totalInvoiced =
-    balances?.reduce((sum, b) => sum + Number(b.total_amount), 0) ?? 0;
-  const totalPaid =
-    balances?.reduce((sum, b) => sum + Number(b.amount_paid), 0) ?? 0;
-  const totalOutstanding =
-    balances?.reduce((sum, b) => sum + Math.max(0, Number(b.outstanding)), 0) ?? 0;
-  const totalOverdue =
-    balances
-      ?.filter((b) => Number(b.outstanding) > 0 && b.due_date && new Date(b.due_date) < today)
-      .reduce((sum, b) => sum + Number(b.outstanding), 0) ?? 0;
+  const totalInvoiced = periodRows.reduce((sum, b) => sum + Number(b.total_amount), 0);
+  const totalPaid = periodRows.reduce((sum, b) => sum + Number(b.amount_paid), 0);
+  const totalOutstanding = periodRows.reduce(
+    (sum, b) => sum + Math.max(0, Number(b.outstanding)),
+    0
+  );
+  const totalOverdue = periodRows
+    .filter((b) => Number(b.outstanding) > 0 && b.due_date && new Date(b.due_date) < today)
+    .reduce((sum, b) => sum + Number(b.outstanding), 0);
   const collectionRate =
     totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0;
 
-  // Needs attention: customers who owe money and have never paid anything.
+  // Needs attention is always current — not scoped to the selected period.
   const byCustomer = new Map<
     string,
     { name: string; outstanding: number; paid: number }
   >();
   for (const b of balances ?? []) {
+    if (b.voided_at) continue;
     const name =
       (b.customers as unknown as { name: string } | null)?.name ??
       "Unknown customer";
@@ -85,7 +123,7 @@ export default async function DashboardPage({
     <main className="min-h-screen px-6 py-6">
       <TopNav />
 
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-4 text-sm text-gray-500">
         {profile?.full_name ?? "there"} — {organizationName}
       </p>
 
@@ -100,6 +138,26 @@ export default async function DashboardPage({
           </p>
         </div>
       )}
+
+      <div className="mb-4 flex gap-2">
+        {(["today", "week", "month", "total"] as RangeKey[]).map((key) => (
+          <a
+            key={key}
+            href={`/dashboard?range=${key}`}
+            className={`rounded-full px-3 py-1 text-sm font-medium ${
+              range === key
+                ? "bg-brand-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {RANGE_LABELS[key]}
+          </a>
+        ))}
+      </div>
+
+      <p className="mb-3 text-xs text-gray-400">
+        Based on invoices issued {range === "total" ? "all-time" : RANGE_LABELS[range].toLowerCase()}
+      </p>
 
       <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="rounded-xl border border-gray-200 p-4">
@@ -141,9 +199,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-semibold text-gray-900">
-          Needs attention
-        </h2>
+        <h2 className="font-semibold text-gray-900">Needs attention</h2>
         <a href="/dashboard/customers" className="text-sm text-brand-700 underline">
           View all customers →
         </a>
