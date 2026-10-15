@@ -278,4 +278,4 @@ export default async function CustomerDetailPage({
       </div>
     </main>
   );
-}
+    }
